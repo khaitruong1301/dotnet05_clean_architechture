@@ -1,43 +1,63 @@
-
-
+using Microsoft.EntityFrameworkCore;
+using repodemo.Infrastructure;
+using repodemo.Infrastructure.Models;
 var builder = WebApplication.CreateBuilder(args);
+//DI các nghiệp vụ
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+
+//Đăng ký entity framework với sql server
+builder.Services.AddDbContext<CybersoftMarketplaceContext>(options=>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("connectionCybersoftMarketplace"));
+});
+
+//DI controller
+builder.Services.AddControllers();
+
+//DISwagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+
+//DI Repository và service
+//Repository
+builder.Services.AddScoped<ProductRepository>();
+builder.Services.AddScoped<UserRepository>();
+builder.Services.AddScoped<RoleRepository>();
+builder.Services.AddScoped<RatingRepository>();
+builder.Services.AddScoped<CategoryRepository>();
+builder.Services.AddScoped<OrderRepository>();
+builder.Services.AddScoped<CartRepository>();
+builder.Services.AddScoped<CartItemRepository>();
+builder.Services.AddScoped<ConversationRepository>();
+builder.Services.AddScoped<CustomerRepository>();
+builder.Services.AddScoped<MessageRepository>();
+builder.Services.AddScoped<OrderItemRepository>();
+builder.Services.AddScoped<ProductImageRepository>();
+builder.Services.AddScoped<ProductVariantRepository>();
+builder.Services.AddScoped<ShopRepository>();
+builder.Services.AddScoped<VGetAllProductsDetailRepository>();
+
+//Service
+builder.Services.AddScoped<IProductService, ProductService>();
+
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
 
+//Apply các middleware  
+app.MapControllers();
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
 
-app.MapGet("/weatherforecast", () =>
+
+
+//swagger
+if (app.Environment.IsDevelopment())
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

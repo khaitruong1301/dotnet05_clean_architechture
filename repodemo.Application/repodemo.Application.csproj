@@ -5,5 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <!-- thêm ref với infrastructure -->
+  <ItemGroup>
+    <ProjectReference Include="..\repodemo.Infrastructure\repodemo.Infrastructure.csproj" />
+  </ItemGroup>
+
 
 </Project>
