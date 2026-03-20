@@ -6,10 +6,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 //Đăng ký entity framework với sql server
+
+//Tắt tham chiếu vòng lặp giữa project Api và Infrastructure
 builder.Services.AddDbContext<CybersoftMarketplaceContext>(options=>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("connectionCybersoftMarketplace"));
+    // options.UseLazyLoadingProxies(false);
+    
 });
+
+// Microsoft.EntityFrameworkCore.Proxies
+
 
 //DI controller
 builder.Services.AddControllers();

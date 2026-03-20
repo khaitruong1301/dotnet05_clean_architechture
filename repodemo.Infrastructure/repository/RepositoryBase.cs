@@ -1,5 +1,6 @@
 //Tạo class repository base class T
 
+using System.Linq.Expressions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,14 +32,14 @@ public class RepositoryBase<T> where T : class
         return await _dbSet.ToListAsync();
     }
 
-    public async Task<T?> SingleOrDefaultAsync(Func<T, bool> predicate)
+    public async Task<T?> SingleOrDefaultAsync(Expression<Func<T, bool>> predicate)
     {
-        return await _dbSet.SingleOrDefaultAsync(e => predicate(e));
+        return await _dbSet.SingleOrDefaultAsync(predicate);
     }
 
-    public async Task<List<T>> WhereAsync(Func<T, bool> predicate)
+    public async Task<List<T>> WhereAsync(Expression<Func<T, bool>> predicate)
     {
-        return await Task.Run(() => _dbSet.Where(predicate).ToList());
+        return await _dbSet.Where(predicate).ToListAsync();
     }
 
     public async Task AddAsync(T entity)
@@ -55,6 +56,12 @@ public class RepositoryBase<T> where T : class
     public async Task UpdateAsync(T entity)
     {
         _dbSet.Update(entity);
+    }
+
+
+    public async Task<List<T>> QueryDBRaw(string sqlQuery, params object[] parameters)
+    {
+        return await _dbSet.FromSqlRaw(sqlQuery, parameters).ToListAsync();
     }
     
 
