@@ -117,7 +117,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 //di phân quyền
 builder.Services.AddAuthorization();
 
-
+//Tạo cors cho http://localhost:5188/ (client blazor) để client có thể gọi api (đặt tên client là "AllowBlazorClient")
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazorClient", builder =>
+    {
+        builder.WithOrigins("http://localhost:5188")
+               .AllowAnyHeader()
+               .AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
@@ -130,6 +139,8 @@ app.UseHttpsRedirection();
 
 //linkedin https://www.linkedin.com/in/khai-pham-van-9bba25236/
 
+//Sử dụng cors 
+app.UseCors("AllowBlazorClient");
 
 
 //swagger

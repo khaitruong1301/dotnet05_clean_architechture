@@ -14,7 +14,7 @@ public interface IProductService
     Task<ResponseData<Product>?> GetProductById(int id);
     //Viết service vừa tìm kiếm vừa phân trang sản phẩm
 
-    Task<ResponseData<List<Product>>> SearchProduct(string keyword, int pageNumber, int pageSize);
+    Task<ResponseData<List<ProductPagingDTO>>> SearchProduct(string keyword, int pageNumber, int pageSize);
 
 
     Task<ResponseData<ProductDetailDTO>> GetProductDetailById(int id);
@@ -33,38 +33,39 @@ public class ProductService : IProductService
         _productVariantRepository = productVariantRepository;
         _productImageRepository = productImageRepository;
     }
-    
+
     public async Task<ResponseData<List<Product>>> GetAllProduct()
     {
-       var lstProduct = await _productRepository.GetAllAsync();
-       ResponseData<List<Product>> response = new ResponseData<List<Product>>()
-       {
-           statusCode = 200,
-           message = "Lấy danh sách sản phẩm thành công",
-           data = lstProduct.Skip(0).Take(10).ToList() //Giả sử chỉ lấy 10 sản phẩm đầu tiên    
-       };
-       return response;
+        var lstProduct = await _productRepository.GetAllAsync();
+        ResponseData<List<Product>> response = new ResponseData<List<Product>>()
+        {
+            statusCode = 200,
+            message = "Lấy danh sách sản phẩm thành công",
+            data = lstProduct.Skip(0).Take(10).ToList() //Giả sử chỉ lấy 10 sản phẩm đầu tiên    
+        };
+        return response;
     }
 
     //Viết hàm lấy ra sản phẩm theo id
     public async Task<ResponseData<Product>?> GetProductById(int id)
     {
-       //Kiểm tra product id đó có tồn tại hay không
-       Product? product = await _productRepository.SingleOrDefaultAsync(prod => prod.Id == id);
-       if(product == null)       {
-           return new ResponseData<Product>()
-           {
-               statusCode = 404,
-               message = "Không tìm thấy sản phẩm",
-               data = null
-           };
-       }
-       return new ResponseData<Product>()
-       {
-           statusCode = 200,
-           message = "Lấy sản phẩm thành công",
-           data = product
-       };
+        //Kiểm tra product id đó có tồn tại hay không
+        Product? product = await _productRepository.SingleOrDefaultAsync(prod => prod.Id == id);
+        if (product == null)
+        {
+            return new ResponseData<Product>()
+            {
+                statusCode = 404,
+                message = "Không tìm thấy sản phẩm",
+                data = null
+            };
+        }
+        return new ResponseData<Product>()
+        {
+            statusCode = 200,
+            message = "Lấy sản phẩm thành công",
+            data = product
+        };
     }
 
     public async Task<ResponseData<ProductDetailDTO>> GetProductDetailById(int id)
@@ -73,7 +74,7 @@ public class ProductService : IProductService
         //Lấy ra danh sách sản phẩm bảng Product, ProductVariant, ProductImage dựa trên product id
         //Kiểm tra id có tồn tại trong product hay không
         Product? prod = await _productRepository.SingleOrDefaultAsync(p => p.Id == id);
-        if(prod == null)
+        if (prod == null)
         {
             return new ResponseData<ProductDetailDTO>()
             {
@@ -95,7 +96,7 @@ public class ProductService : IProductService
         };
 
         //Lấy danh sách image của sản phẩm 
-        var lstProductImage =  _productImageRepository.WhereAsync(item => item.ProductId == id).Result.Select(n => new ProductImageDTO()
+        var lstProductImage = _productImageRepository.WhereAsync(item => item.ProductId == id).Result.Select(n => new ProductImageDTO()
         {
             Id = n.Id,
             ImageUrl = n.ImageUrl
@@ -125,36 +126,53 @@ public class ProductService : IProductService
         };
     }
 
-    public async Task<ResponseData<List<Product>>> SearchProduct(string keyword, int pageNumber, int pageSize)
+    public async Task<ResponseData<List<ProductPagingDTO>>> SearchProduct(string keyword, int pageNumber, int pageSize)
     {
 
         keyword = FunctionUtility.GenerateSlug(keyword); //chuyển keyword thành slug để tìm kiếm, ví dụ: "Áo thun nam" -> "ao-thun-nam"
-        
+
         //Lấy dữ liệu dựa trên contains keyword
         var productList = await _productRepository.WhereAsync(prod => prod.Alias.Contains(keyword));
+        productList = productList.OrderBy(prod => prod.Name).Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
 
-        if(productList.Count == 0)
+        if (productList.Count == 0)
         {
-            return new ResponseData<List<Product>>()
+            return new ResponseData<List<ProductPagingDTO>>()
             {
                 statusCode = 404,
                 message = "Không tìm thấy sản phẩm nào",
-                data = new List<Product>()
+                data = new List<ProductPagingDTO>()
             };
         }
-        return new ResponseData<List<Product>>()
+
+        return new ResponseData<List<ProductPagingDTO>>()
         {
             statusCode = 200,
             message = "Tìm kiếm sản phẩm thành công",
-            data = productList.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList()
+            data = productList.Select(prod => new ProductPagingDTO()
+            {
+                Id = prod.Id,
+                ShopId = prod.ShopId,
+                ShopName = prod.Shop.ShopName,
+                CategoryId = prod.CategoryId,
+                CategoryName = prod.Category.Name,
+                Name = prod.Name,
+                Description = prod.Description,
+                Alias = prod.Alias,
+                AdditionalData = prod.AdditionalData,
+                Deleted = prod.Deleted,
+                Image = prod.Image,
+                DisplayPrice = prod.DisplayPrice
+            }).ToList()
         };
+
     }
 
-//viết hàm lấy chi tiết sản phẩm theo id, trong đó chi tiết sản phẩm bao gồm thông tin sản phẩm, danh sách hình ảnh của sản phẩm, danh sách variant của sản phẩm, mỗi variant bao gồm thông tin variant và hình ảnh của variant đó
+    //viết hàm lấy chi tiết sản phẩm theo id, trong đó chi tiết sản phẩm bao gồm thông tin sản phẩm, danh sách hình ảnh của sản phẩm, danh sách variant của sản phẩm, mỗi variant bao gồm thông tin variant và hình ảnh của variant đó
 
 
 
-    
+
 
 
 }
