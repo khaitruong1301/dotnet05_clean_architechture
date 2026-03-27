@@ -8,8 +8,8 @@ public class ProductDetailDTO
     public string AdditionalData { get;set;}
     public List<ProductImageDTO> ProductImages { get; set; } = new List<ProductImageDTO>();
     public List<ProductVariantDTO> ProductVariants { get; set; } = new List<ProductVariantDTO>();
-
 }
+
 
 public class ProductVariantDTO
 {
@@ -21,6 +21,7 @@ public class ProductVariantDTO
     public string ProductVariantImage {get;set;}
 
 }
+
 
 public class ProductImageDTO
 {
