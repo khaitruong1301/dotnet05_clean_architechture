@@ -78,6 +78,7 @@ builder.Services.AddScoped<UnitOfWork>();
 //Service
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IUserService,UserService>();
+builder.Services.AddScoped<ICartService,CartService>();
 builder.Services.AddScoped<JwtService>();
 
 
