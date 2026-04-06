@@ -77,8 +77,9 @@ builder.Services.AddScoped<UnitOfWork>();
 
 //Service
 builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<IUserService,UserService>();
-builder.Services.AddScoped<ICartService,CartService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<JwtService>();
 
 
@@ -113,21 +114,57 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         // Kiểm tra thời gian hết hạn của token, không cho phép sử dụng token hết hạn
         ValidateLifetime = true
     };
+
+    //Doạn phân quyền cho phép client gửi token lên khi kết nối signalR (mặc định signalR không hỗ trợ gửi token lên header như các request http thông thường mà sẽ gửi token lên query string)
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var path = context.HttpContext.Request.Path;
+            var accessToken = context.Request.Query["access_token"];
+            var authHeader = context.Request.Headers["Authorization"];
+
+            // Console.WriteLine($"Path: {path}");
+            // Console.WriteLine($"Query access_token: {accessToken}");
+            // Console.WriteLine($"Authorization: {authHeader}");
+
+            if (!string.IsNullOrEmpty(accessToken) &&
+                path.StartsWithSegments("/cart-hub"))
+            {
+                context.Token = accessToken.FirstOrDefault();
+            }
+
+            return Task.CompletedTask;
+        }
+    };
 });
 
 //di phân quyền
 builder.Services.AddAuthorization();
+
+//DI signalR
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+});
+
+
+
 
 //Tạo cors cho http://localhost:5188/ (client blazor) để client có thể gọi api (đặt tên client là "AllowBlazorClient")
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorClient", builder =>
     {
-        builder.WithOrigins("http://localhost:5188")
+        builder.WithOrigins("http://localhost:5188", "http://127.0.0.1:5501")
                .AllowAnyHeader()
-               .AllowAnyMethod();
+               .AllowAnyMethod()
+               .AllowCredentials();
     });
 });
+
+
+
 
 var app = builder.Build();
 
@@ -150,6 +187,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+//setup đường dẫn đi vào hub
+app.MapHub<CartHub>("/cart-hub");
+
 
 app.Run();
 

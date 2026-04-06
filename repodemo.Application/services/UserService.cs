@@ -14,15 +14,20 @@ public class UserService : IUserService
     private readonly UserRepository _userRepository;
     private readonly UnitOfWork _unitOfWork;
     private readonly RoleRepository _roleRepository;
+    private readonly OrderRepository _orderRepository;
+    private readonly OrderItemRepository _orderItemRepository;
 
     private readonly JwtService _jwtService;
 
-    public UserService(UserRepository userRepository, RoleRepository roleRepository, UnitOfWork unitOfWork, JwtService jwtService)
+    public UserService(UserRepository userRepository, RoleRepository roleRepository, UnitOfWork unitOfWork, JwtService jwtService, OrderRepository orderRepository, OrderItemRepository orderItemRepo)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _unitOfWork = unitOfWork;
         _jwtService = jwtService;
+        _orderRepository = orderRepository;
+        _orderItemRepository = orderItemRepo;
+
 
     }
 
@@ -122,6 +127,22 @@ public class UserService : IUserService
                 Avatar = user.Avatar,
                 Address = user.Address,
             };
+
+            //Lấy đơn hàng từ orderRepository theo userId
+            List<OrderDTO> orders = _orderRepository.WhereAsync(order => order.BuyerId.ToString() == userId).Result.Select(item => new OrderDTO
+            {
+                CreateAt = item.CreatedAt ,
+                TotalAmount = item.TotalAmount,
+                lstItem = _orderItemRepository.WhereAsync(orderItem => orderItem.OrderId == item.Id).Result.Select(orderItem => new OrderItemDTO
+                {
+                    OrderId = orderItem.OrderId,
+                    VariantId = orderItem.VariantId,
+                    VariantName = orderItem.Variant.VariantName,
+                    Quantity = orderItem.Quantity,
+                    UrlImageVariant = orderItem.Variant.Image
+                }).ToList()
+            }).ToList();
+            userProfile.lstOrder = orders;
 
             return Task.Run(() => new ResponseData<UserProfileDTO>
             {
