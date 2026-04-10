@@ -1,0 +1,314 @@
+/**
+ *  ╔══════════════════════════════════════════════════════════════════════════╗
+ *  ║           DDD ARCHITECTURE - TÓM TẮT PHỐI HỢP (Visual Guide)            ║
+ *  ╚══════════════════════════════════════════════════════════════════════════╝
+ */
+
+/*
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                           CẤU TRÚC DDD TRONG PROJECT                        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           🕸️ API LAYER (Controller)                         │
+│                                                                             │
+│  POST /api/orders                                                           │
+│  ├─ DecodeToken()                                                           │
+│  └─ Call: IOrderService.AddOrder(token, cartDTO)                           │
+│                                                                             │
+│  ⚠️ Chỉ nhận request, gọi Application Service, return response             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       📋 APPLICATION LAYER (OrderService)                   │
+│                                                                             │
+│  public class OrderService : IOrderService                                  │
+│  {                                                                           │
+│      private OrderDomainService _orderDomainService;                        │
+│      private OrderRepository _orderRepository;                              │
+│      private CartRepository _cartRepository;                                │
+│      private UnitOfWork _unitOfWork;                                        │
+│      private JwtService _jwtService;                                        │
+│                                                                             │
+│      public async Task<ResponseData<OrderDTO>> AddOrder(...)               │
+│      {                                                                       │
+│          1. userID = _jwtService.DecodePayloadToken()                      │
+│          2. cart = await _cartRepository.GetAsync()                         │
+│          3. ForEach item:                                                   │
+│                                                                             │
+│          ┌───────────────────────────────────────────────────────────┐     │
+│          │ ✓ GỌITION DOMAIN SERVICE:                                 │     │
+│          │   _orderDomainService.ValidateOrderItem(                  │     │
+│          │       item.Name, item.Qty, item.Stock, item.Price)        │     │
+│          └───────────────────────────────────────────────────────────┘     │
+│                                                                             │
+│          4. totalAmount = _orderDomainService.CalculateTotal()             │
+│          5. order = new Order { ... }                                      │
+│          6. await _orderRepository.AddAsync(order)                         │
+│          7. await _unitOfWork.SaveChangesAsync()                           │
+│          8. return MapToDTO()                                              │
+│      }                                                                       │
+│  }                                                                           │
+│                                                                             │
+│  ✓ Điều phối use case                                                      │
+│  ✓ Quản lý transaction                                                     │
+│  ✓ Gọi Domain Service để validate business logic                          │
+│  ✓ Gọi Repository để lấy/lưu dữ liệu                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    💼 DOMAIN LAYER (Business Logic)                        │
+│                                                                             │
+│  OrderBusinessRules (Static)      OrderDomainService                      │
+│  ├─ ValidateQuantity()            ├─ ValidateOrderItem()                 │
+│  ├─ ValidateStock()               ├─ CalculateTotal()                    │
+│  ├─ ValidatePrice()               └─ GetValidationErrors()               │
+│  └─ ValidateItemCount()                                                   │
+│                                                                             │
+│  ✓ Không phụ thuộc Repository (không import Infrastructure)              │
+│  ✓ Không phụ thuộc HttpContext                                            │
+│  ✓ Pure business logic, dễ test                                           │
+│  ✓ Có thể dùng từ nhiều Application Services                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                  🗄️ INFRASTRUCTURE LAYER (Repositories)                     │
+│                                                                             │
+│  OrderRepository            CartRepository         CartItemRepository      │
+│  ├─ GetAsync()              ├─ GetAsync()          ├─ GetAsync()          │
+│  ├─ AddAsync()              ├─ AddAsync()          ├─ AddAsync()          │
+│  ├─ UpdateAsync()           ├─ RemoveAsync()       ├─ RemoveAsync()       │
+│  └─ RemoveAsync()           └─ FindAsync()         └─ FindAsync()         │
+│                                                                             │
+│  ✓ Chỉ chứa database access logic                                         │
+│  ✓ Không chứa business logic                                              │
+│  ✓ Map Entity ↔ Database                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                     PHỐI HỢP: Application → Domain → Infrastructure        ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+     OrderService (Application)
+            │
+            ├─→ 1. Authenticate
+            │   └─ _jwtService.DecodePayloadToken()
+            │        ↓
+            ├─→ 2. Load Data
+            │   └─ _cartRepository.GetAsync()
+            │        ↓
+            ├─→ 3. For Each Item:
+            │   └─ 4. Validate Business Logic
+            │       └─ _orderDomainService.ValidateOrderItem()  ← DOMAIN
+            │           │
+            │           ├─→ OrderBusinessRules.ValidateQuantity()
+            │           │
+            │           ├─→ OrderBusinessRules.ValidateStock()
+            │           │
+            │           └─→ OrderBusinessRules.ValidatePrice()
+            │        ↓
+            ├─→ 5. Calculate
+            │   └─ _orderDomainService.CalculateTotal()  ← DOMAIN
+            │        ↓
+            ├─→ 6. Create Entity
+            │   └─ new Order { ... }
+            │        ↓
+            ├─→ 7. Persist
+            │   ├─ _orderRepository.AddAsync()  ← INFRASTRUCTURE
+            │   ├─ _cartRepository.RemoveAsync()  ← INFRASTRUCTURE
+            │   └─ _unitOfWork.SaveChangesAsync()
+            │        ↓
+            └─→ 8. Return Response
+                └─ ResponseData<OrderDTO>
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                          PHÂN CHIA TRÁCH NHIỆM                              ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+│ Domain Layer                  │
+│ ........                      │
+│ ❓ WHAT IS VALID?            │
+│                               │
+│ ✓ Quantity > 0                │
+│ ✓ Quantity <= Stock           │
+│ ✓ Price >= 0                  │
+│ ✓ Total = Qty × Price         │
+│                               │
+│ 📦 Chứa: Rules, Aggregates   │
+│ 🚫 Không: Repositories, DB   │
+└━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+│ Application Layer             │
+│ .........                     │
+│ ❓ HOW DO WE DO IT?          │
+│                               │
+│ ✓ Xác thực                    │
+│ ✓ Lấy data từ Repository      │
+│ ✓ Gọi Domain Service          │
+│ ✓ Quản lý transaction         │
+│ ✓ Ánh xạ Entity → DTO         │
+│                               │
+│ 📦 Chứa: Use Cases, Services │
+│ 🚫 Không: Database Access    │
+└━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+│ Infrastructure Layer          │
+│ .................             │
+│ ❓ WHERE IS IT STORED?       │
+│                               │
+│ ✓ Database Access             │
+│ ✓ Repository Patterns         │
+│ ✓ Entity ↔ DB Mapping         │
+│                               │
+│ 📦 Chứa: Repositories, EF     │
+│ 🚫 Không: Business Logic     │
+└━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┘
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                    DEPENDENCY INJECTION SETUP                               ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+// Program.cs
+
+// ═══════════════════════════════════════════════════════════════
+// 1. Domain Services (Lõi logic, không phụ thuộc others)
+// ═══════════════════════════════════════════════════════════════
+builder.Services.AddScoped<OrderDomainService>();
+
+
+// ═══════════════════════════════════════════════════════════════
+// 2. Application Services (Phụ thuộc Domain + Repositories)
+// ═══════════════════════════════════════════════════════════════
+builder.Services.AddScoped<IOrderService, OrderService>();
+
+
+// ═══════════════════════════════════════════════════════════════
+// 3. Repositories (Infrastructure)
+// ═══════════════════════════════════════════════════════════════
+builder.Services.AddScoped<OrderRepository>();
+builder.Services.AddScoped<CartRepository>();
+builder.Services.AddScoped<CartItemRepository>();
+
+
+// ═══════════════════════════════════════════════════════════════
+// 4. Transaction Manager (Infrastructure)
+// ═══════════════════════════════════════════════════════════════
+builder.Services.AddScoped<UnitOfWork>();
+
+
+/*
+
+DEPENDENCY FLOW:
+
+OrderService (Application)
+    ↑
+    ├─ depends on → OrderDomainService (Domain) ✓
+    ├─ depends on → OrderRepository (Infrastructure) ✓
+    ├─ depends on → CartRepository (Infrastructure) ✓
+    ├─ depends on → UnitOfWork (Infrastructure) ✓
+    └─ depends on → JwtService (Application)
+
+OrderDomainService (Domain)
+    ↑
+    └─ depends on → NOTHING (Pure business logic) ✓
+
+OrderRepository (Infrastructure)
+    ↑
+    └─ depends on → DbContext (EF Core)
+
+*/
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                      REUSABILITY: Sử dụng Domain Service                   ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+OrderDomainService._orderDomainService.ValidateOrderItem() được dùng từ:
+
+1. ✓ OrderService.AddOrder()
+   └─ Tạo đơn hàng từ giỏ
+
+2. ✓ OrderService.UpdateOrder()  
+   └─ Cập nhật items trong đơn
+
+3. ✓ CartService.AddToCart()
+   └─ Validate trước khi thêm giỏ (tái sử dụng)
+
+4. ✓ BulkOrderService.CreateBulkOrders()
+   └─ Tạo nhiều đơn cùng lúc
+
+5. ✓ WebhookService.ProcessOrderWebhook()
+   └─ Xử lý webhook từ bên thứ 3
+
+6. ✓ BackgroundJob.RecalculateOrders()
+   └─ Tính lại giá background
+
+═ Domain Service được chia sẻ → Không lặp lại code
+═ Consistency → Tất cả dùng same validation rules
+═ Maintainability → Fix validation ở một nơi
+
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                          UNIT TEST: Dễ Test Domain                         ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+[TestClass]
+public class OrderDomainServiceTests
+{
+    private OrderDomainService _service;
+    
+    [TestInitialize]
+    public void Setup()
+    {
+        // ✓ Không cần Mock Repository
+        // ✓ Chỉ test domain logic
+        _service = new OrderDomainService();
+    }
+    
+    [TestMethod]
+    public void ValidateOrderItem_ValidInput_ReturnsTrue()
+    {
+        var (isValid, error) = _service.ValidateOrderItem(
+            "Product1", 5, 10, 100m);
+        
+        Assert.IsTrue(isValid);
+        Assert.AreEqual("", error);
+    }
+    
+    [TestMethod]
+    public void ValidateOrderItem_QuantityExceedsStock_ReturnsFalse()
+    {
+        var (isValid, error) = _service.ValidateOrderItem(
+            "Product1", 15, 10, 100m);  // 15 > 10 stock
+        
+        Assert.IsFalse(isValid);
+        Assert.IsTrue(error.Contains("vượt quá"));
+    }
+    
+    [TestMethod]
+    public void CalculateTotal_MultipleItems_CorrectTotal()
+    {
+        var items = new[] 
+        { 
+            (Qty: 5, Price: 100m),    // 500
+            (Qty: 3, Price: 50m)      // 150
+        };                             // Total: 650
+        
+        var total = _service.CalculateTotal(items.ToList());
+        Assert.AreEqual(650m, total);
+    }
+}
+
+═ Không phụ thuộc Infrastructure
+═ Nhanh, rõ ràng, dễ viết
+═ Coverage cao
+
+*/

@@ -12,11 +12,16 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Proxies" Version="10.0.5" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.5" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
-  <!-- Tạo tham chiếu qua infreasture -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="10.1.7" />
+  <!-- References -->
+    <ProjectReference Include="..\repodemo.Domain\repodemo.Domain.csproj" />
     <ProjectReference Include="..\repodemo.Application\repodemo.Application.csproj" />
     <ProjectReference Include="..\repodemo.Infrastructure\repodemo.Infrastructure.csproj" />
 
   
   </ItemGroup>
 </Project>
+
+
+

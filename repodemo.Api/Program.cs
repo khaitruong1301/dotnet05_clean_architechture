@@ -6,6 +6,7 @@ using repodemo.Infrastructure.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Security.Claims;
 using System.Text;
+using Swashbuckle.AspNetCore.SwaggerGen;
 var builder = WebApplication.CreateBuilder(args);
 //DI các nghiệp vụ
 
@@ -33,6 +34,7 @@ builder.Services.AddEndpointsApiExplorer();
 //cấu hình kích hoạt authorize của swagger jwt (hiện ổ khoá đăng nhập ở góc phải trên cùng của swagger)
 builder.Services.AddSwaggerGen(options =>
 {
+    
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -81,6 +83,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<JwtService>();
+
+//Domain Services
+builder.Services.AddScoped<repodemo.Domain.Services.OrderDomainService>();
 
 
 
